@@ -1,26 +1,27 @@
 create procedure syn.usp_ImportFileCustomerSeasonal
 	@ID_Record int
-AS
+as
 set nocount on
 begin
 	declare @RowCount int = (select count(*) from syn.SA_CustomerSeasonal)
-	declare @ErrorMessage varchar(max)
+	,@ErrorMessage varchar(4000)
 
 -- Проверка на корректность загрузки
-	if not exists (
+if not exists (
 	select 1
-	from syn.ImportFile as f
-	where f.ID = @ID_Record
-		and f.FlagLoaded = cast(1 as bit)
+	from syn.ImportFile as imf
+	where imf.ID = @ID_Record
+		and imf.FlagLoaded = cast(1 as bit)
 	)
 		begin
 			set @ErrorMessage = 'Ошибка при загрузке файла, проверьте корректность данных'
 
 			raiserror(@ErrorMessage, 3, 1)
+
 			return
 		end
 
-	--Чтение из слоя временных данных
+	-- Чтение из слоя временных данных
 	select
 		c.ID as ID_dbo_Customer
 		,cst.ID as ID_CustomerSystemType
@@ -46,21 +47,29 @@ begin
 	select
 		cs.*
 		,case
-			when c.ID is null then 'UID клиента отсутствует в справочнике "Клиент"'
-			when c_dist.ID is null then 'UID дистрибьютора отсутствует в справочнике "Клиент"'
-			when s.ID is null then 'Сезон отсутствует в справочнике "Сезон"'
-			when cst.ID is null then 'Тип клиента отсутствует в справочнике "Тип клиента"'
-			when try_cast(cs.DateBegin as date) is null then 'Невозможно определить Дату начала'
-			when try_cast(cs.DateEnd as date) is null then 'Невозможно определить Дату окончания'
-			when try_cast(isnull(cs.FlagActive, 0) as bit) is null then 'Невозможно определить Активность'
+			when c.ID is null 
+				then 'UID клиента отсутствует в справочнике "Клиент"'
+			when c_dist.ID is null 
+				then 'UID дистрибьютора отсутствует в справочнике "Клиент"'
+			when s.ID is null 
+				then 'Сезон отсутствует в справочнике "Сезон"'
+			when cst.ID is null 
+				then 'Тип клиента отсутствует в справочнике "Тип клиента"'
+			when try_cast(cs.DateBegin as date) is null 
+				then 'Невозможно определить Дату начала'
+			when try_cast(cs.DateEnd as date) is null 
+				then 'Невозможно определить Дату окончания'
+			when try_cast(isnull(cs.FlagActive, 0) as bit) is null 
+				then 'Невозможно определить Активность'
 		end as Reason
 	into #BadInsertedRows
 	from syn.SA_CustomerSeasonal as cs
-	left join dbo.Customer as c on c.UID_DS = cs.UID_DS_Customer
-		and c.ID_mapping_DataSource = 1
-	left join dbo.Customer as c_dist on c_dist.UID_DS = cs.UID_DS_CustomerDistributor and c_dist.ID_mapping_DataSource = 1
-	left join dbo.Season as s on s.Name = cs.Season
-	left join syn.CustomerSystemType as cst on cst.Name = cs.CustomerSystemType
+		left join dbo.Customer as c on c.UID_DS = cs.UID_DS_Customer
+			and c.ID_mapping_DataSource = 1
+		left join dbo.Customer as c_dist on c_dist.UID_DS = cs.UID_DS_CustomerDistributor 
+			and c_dist.ID_mapping_DataSource = 1
+		left join dbo.Season as s on s.Name = cs.Season
+		left join syn.CustomerSystemType as cst on cst.Name = cs.CustomerSystemType
 	where cc.ID is null
 		or cd.ID is null
 		or s.ID is null
